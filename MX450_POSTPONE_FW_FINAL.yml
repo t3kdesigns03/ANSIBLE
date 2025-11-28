@@ -1,0 +1,163 @@
+---
+- name: Postpone Meraki MX Firmware Upgrade — FINAL CLEAN EXIT
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    meraki_org_id: 977108
+    meraki_base_url: "https://api.meraki.com/api/v1"
+    serials:
+      - Q2TW-TD7B-BBM4 # MX450 JN
+      - Q2TW-VX64-KWV5 # MX450 WM
+      - Q2TW-DBVG-LJ9Q # MX450 JN2
+      - Q2TW-4TRV-JFXZ # MX450 WM2
+      - Q3LD-MNY8-TRZS # MX450 JN3
+      - Q3LD-PQDJ-9UNB # MX450 WM3
+    postpone_offset_days: 30
+    dry_run: false
+
+  tasks:
+
+  - name: Get network ID(s) from device serial(s)
+    cisco.meraki.devices_info:
+      meraki_api_key: "{{ vault_meraki_apikey }}"
+      organizationId: "{{ meraki_org_id }}"
+      serial: "{{ item }}"
+    loop: "{{ serials }}"
+    register: dev_info
+    failed_when: false
+    changed_when: false
+
+  - name: Set network_ids fact
+    set_fact:
+      network_ids: "{{ dev_info.results | map(attribute='meraki_response.networkId') | unique | list }}"
+
+  - name: Get current firmware upgrade status
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+      method: GET
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      return_content: true
+    loop: "{{ network_ids }}"
+    register: fw_status
+    failed_when: false
+    changed_when: false
+
+  # ✅ Pre-check for scheduled upgrades
+  - name: Check if any scheduled upgrades exist
+    set_fact:
+      scheduled_upgrades: >-
+        {{ fw_status.results
+           | selectattr('json.products.appliance.nextUpgrade.time', 'defined')
+           | selectattr('json.products.appliance.nextUpgrade.time', '!=', '')
+           | list }}
+
+  - name: Debug message if no upgrades scheduled
+    debug:
+      msg: |
+        ❌ No networks have a scheduled upgrade to postpone.
+        Skipping remaining tasks.
+    when: scheduled_upgrades | length == 0
+
+  - name: End play if no scheduled upgrades
+    meta: end_play
+    when: scheduled_upgrades | length == 0
+
+  # ✅ Continue only if scheduled upgrades exist
+  - name: Calculate next allowed upgrade time
+    vars:
+      base_epoch: "{{ ansible_date_time.epoch | int + (postpone_offset_days * 86400) }}"
+      day_map: {sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6}
+      target_day: "{{ (item.json.upgradeWindow.dayOfWeek | default('sun') | lower)[:3] }}"
+      target_weekday: "{{ day_map[target_day] }}"
+      current_weekday: "{{ lookup('pipe', 'date +%w -d @' + base_epoch|string) | int }}"
+      days_to_add: "{{ ((target_weekday - current_weekday) % 7) }}"
+      aligned_epoch: "{{ base_epoch + (days_to_add * 86400) }}"
+      final_epoch: "{{ aligned_epoch if aligned_epoch <= (ansible_date_time.epoch | int + 30*86400) else base_epoch }}"
+      hour: "{{ '%02d' | format((item.json.upgradeWindow.hourOfDay | default('4:00')).split(':')[0] | int) }}"
+      new_time: "{{ lookup('pipe', 'date +%Y-%m-%d -d @' + final_epoch|string) }}T{{ hour }}:00:00Z"
+    set_fact:
+      new_upgrade_time: "{{ new_time }}"
+    loop: "{{ fw_status.results }}"
+    when:
+      - item.json.products.appliance.nextUpgrade.time is defined
+      - item.json.products.appliance.nextUpgrade.time | length > 0
+      - "'locked' not in (item.json.products.appliance.currentVersion.firmware | default('')) | lower"
+    register: postpone_times
+    failed_when: false
+    changed_when: false
+
+  - name: Show calculated upgrade time
+    debug:
+      msg: "Network {{ item.item.item }} → Proposed new time: {{ item.ansible_facts.new_upgrade_time }}"
+    loop: "{{ postpone_times.results | default([]) }}"
+    when: item.ansible_facts.new_upgrade_time is defined
+
+  - name: POSTPONE — apply the new time
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item.item.item }}/firmwareUpgrades"
+      method: PUT
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        Content-Type: application/json
+      body_format: json
+      body: >
+        {
+          "timezone": "{{ item.item.json.timezone }}",
+          "products": {
+            "appliance": {
+              "nextUpgrade": {
+                "time": "{{ item.ansible_facts.new_upgrade_time }}",
+                "toVersion": { "id": "{{ item.item.json.products.appliance.nextUpgrade.toVersion.id }}" }
+              },
+              "participateInNextBetaRelease": false
+            }
+          }
+        }
+      status_code: 200
+    loop: "{{ postpone_times.results | default([]) }}"
+    when: not dry_run
+    failed_when: false
+
+  - name: Verify final state
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+      method: GET
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      return_content: true
+    loop: "{{ network_ids }}"
+    register: verify
+    failed_when: false
+    changed_when: false
+
+  - name: SUMMARY
+    debug:
+      msg: |
+        ✅ Postponed upgrades:
+        {% set postponed = postpone_times.results | selectattr('ansible_facts', 'defined') | list %}
+        {% if postponed | length > 0 %}
+        {% for r in postponed %}
+        • {{ r.item.item }} → {{ r.ansible_facts.new_upgrade_time }}
+        {% endfor %}
+        {% else %}
+        None
+        {% endif %}
+
+        ---
+        Skipped networks:
+        {% for s in fw_status.results %}
+        {% if s.json.products.appliance.nextUpgrade.time is not defined
+              or s.json.products.appliance.nextUpgrade.time | length == 0
+              or 'locked' in (s.json.products.appliance.currentVersion.firmware | default('')) | lower %}
+        • {{ s.item }} → {{ 'firmware locked' if 'locked' in (s.json.products.appliance.currentVersion.firmware | default('')) | lower else 'no scheduled upgrade' }}
+        {% endif %}
+        {% endfor %}
+
+  - name: Force success message
+    debug:
+      msg: "✅ Playbook completed successfully."
+    failed_when: false

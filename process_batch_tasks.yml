@@ -1,0 +1,16 @@
+# process_batch_tasks.yml
+- name: Debug current batch info
+  debug:
+    msg: "Processing {{ current_batch_networks | length }} networks for tag {{ P_TAG }}"
+
+- name: Tag networks in the current batch with {{ P_TAG }}
+  cisco.meraki.networks:
+    meraki_api_key: "{{ vault_meraki_apikey }}"
+    organizationId: "{{ meraki_org_id }}"
+    networkId: "{{ item.id }}"
+    name: "{{ item.name }}"
+    tags: "{{ item.tags | default([]) | reject('match', '^P[0-9]+$') | list | union([P_TAG]) }}"
+    state: present
+  loop: "{{ current_batch_networks }}"
+  loop_control:
+    label: "Tagging network: {{ item.name }} (ID: {{ item.id }}) with {{ P_TAG }}"

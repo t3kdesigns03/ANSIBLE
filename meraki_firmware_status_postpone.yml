@@ -1,0 +1,61 @@
+---
+- name: Collect and upgrade firmware for Z3 networks
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_files:
+    - ./group_vars/merakivault.yml
+
+  tasks:
+
+    - name: Get all networks in the org
+      cisco.meraki.organizations_devices_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ organizationId }}"
+        networkId: "{{ networkId }}"
+      register: all_networks
+
+    - name: Filter networks with Z3 appliances
+      set_fact:
+        z3_networks: "{{ all_networks.json | selectattr('productTypes', 'defined') | selectattr('productTypes', 'contains', 'appliance') | selectattr('tags', 'defined') | selectattr('tags', 'contains', 'Z3') | list }}"
+
+    - name: Initialize flattened results list
+      set_fact:
+        flattened_results: []
+
+    - name: Process Z3 networks
+      vars:
+        network_name: "{{ item.name }}"
+        network_id: "{{ item.id }}"
+      loop: "{{ z3_networks }}"
+      loop_control:
+        label: "{{ item.name }}"
+      tasks:
+
+        - name: Get firmware info
+          cisco.meraki.networks_firmware_upgrades_info:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ network_id }}"
+          register: firmware_info
+
+        - name: Schedule firmware upgrade
+          cisco.meraki.networks_firmware_upgrades:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ network_id }}"
+            products:
+              appliance:
+                nextUpgrade:
+                  time: '{{ upgradeTime }}'
+                  toVersion:
+                    id: '{{ firmwareId }}'
+                participateInNextBetaRelease: false
+          register: upgrade_result
+
+        - name: Collect post-upgrade firmware info
+          cisco.meraki.networks_firmware_upgrades_info:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ network_id }}"
+          register: post_upgrade_info
+
+        - name: Add result to flattened list
+          set_fact:

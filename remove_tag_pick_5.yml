@@ -1,0 +1,49 @@
+---
+- name: Test tagging first 5 active Meraki networks for phased password update
+  hosts: localhost
+  connection: local
+  vars_files:
+    - ./group_vars/merakivault.yml
+  gather_facts: false
+
+  tasks:
+    - name: Get ALL Meraki organization networks
+      cisco.meraki.networks_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ meraki_org_id }}"
+        perPage: 300
+        total_pages: -1
+      register: all_meraki_networks
+      ignore_errors: yes
+
+    - name: Show total networks found
+      debug:
+        msg: "{{ all_meraki_networks.meraki_response | default([]) | length }} networks found in total."
+      when: all_meraki_networks is success
+
+    - name: Fail if no networks are found
+      fail:
+        msg: "No Meraki networks found for organization ID {{ meraki_org_id }}."
+      when: all_meraki_networks.meraki_response | default([]) | length == 0
+
+    - name: Select first 5 active networks and the rest
+      set_fact:
+        first_five_networks: "{{ all_meraki_networks.meraki_response | default([]) | list | slice(0, 5) }}"
+        remaining_networks: "{{ all_meraki_networks.meraki_response | default([]) | list | slice(5, -1) }}"
+      when: all_meraki_networks is success
+
+    - name: Tag first 5 networks with P1 for password update
+      include_tasks: process_batch_tasks.yml
+      vars:
+        current_batch_networks: "{{ first_five_networks }}"
+        P_TAG: "P1"
+      when: first_five_networks | length > 0
+
+    - name: Remove P1 tag from remaining networks
+      cisco.meraki.networks_update:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ meraki_org_id }}"
+        networkId: "{{ item.id }}"
+        tags: "{{ (item.tags | default([])) | reject('==', 'P1') | list }}"
+      loop: "{{ remaining_networks }}"
+      when: remaining_networks | length > 0

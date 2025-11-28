@@ -1,0 +1,207 @@
+---
+- name: Export Meraki SD-WAN running configuration
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    network_id: "N_812899732740392528"
+    device_serial: "Q2TW-DBVG-LJ9Q"
+    base_url: "https://api.meraki.com/api/v1/networks/{{ network_id }}"
+    headers:
+      X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      Content-Type: "application/json"
+
+  tasks:
+    - name: Get Device Details
+      uri:
+        url: "{{ base_url }}/devices/{{ device_serial }}"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: device_details
+
+    - name: Save Device Details
+      copy:
+        content: "{{ device_details.content }}"
+        dest: "./device_details.json"
+
+    - name: Get Route Table (Static Routes)
+      uri:
+        url: "{{ base_url }}/appliance/staticRoutes"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: route_table
+
+    - name: Save Route Table
+      copy:
+        content: "{{ route_table.content }}"
+        dest: "./route_table.json"
+
+    - name: Get VLAN Settings
+      uri:
+        url: "{{ base_url }}/appliance/vlans/settings"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: vlan_settings
+
+    - name: Get VLANs
+      uri:
+        url: "{{ base_url }}/appliance/vlans"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: vlans
+      when: vlan_settings.json.vlansEnabled | bool
+
+    - name: Save VLANs
+      copy:
+        content: "{{ vlans.content | default('[]') }}"
+        dest: "./vlans.json"
+      when: vlan_settings.json.vlansEnabled | bool
+
+    - name: Get L3 Firewall Rules
+      uri:
+        url: "{{ base_url }}/appliance/firewall/l3FirewallRules"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: l3_firewall_rules
+
+    - name: Save L3 Firewall Rules
+      copy:
+        content: "{{ l3_firewall_rules.content }}"
+        dest: "./l3_firewall_rules.json"
+
+    - name: Get Site-to-Site VPN
+      uri:
+        url: "{{ base_url }}/appliance/vpn/siteToSiteVpn"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: s2s_vpn
+
+    - name: Save Site-to-Site VPN
+      copy:
+        content: "{{ s2s_vpn.content }}"
+        dest: "./site_to_site_vpn.json"
+
+    - name: Get Traffic Shaping Rules
+      uri:
+        url: "{{ base_url }}/appliance/trafficShaping/rules"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: traffic_shaping_rules
+
+    - name: Save Traffic Shaping Rules
+      copy:
+        content: "{{ traffic_shaping_rules.content }}"
+        dest: "./traffic_shaping_rules.json"
+
+    - name: Get Content Filtering
+      uri:
+        url: "{{ base_url }}/appliance/contentFiltering"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: content_filtering
+
+    - name: Save Content Filtering
+      copy:
+        content: "{{ content_filtering.content }}"
+        dest: "./content_filtering.json"
+
+    - name: Get Intrusion Detection
+      uri:
+        url: "{{ base_url }}/appliance/security/intrusion"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: intrusion
+
+    - name: Save Intrusion Detection
+      copy:
+        content: "{{ intrusion.content }}"
+        dest: "./intrusion_detection.json"
+
+    - name: Get Malware Protection
+      uri:
+        url: "{{ base_url }}/appliance/security/malware"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: malware
+
+    - name: Save Malware Protection
+      copy:
+        content: "{{ malware.content }}"
+        dest: "./malware_protection.json"
+
+    - name: Get L7 Firewall Rules
+      uri:
+        url: "{{ base_url }}/appliance/firewall/l7FirewallRules"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: l7_firewall_rules
+
+    - name: Save L7 Firewall Rules
+      copy:
+        content: "{{ l7_firewall_rules.content }}"
+        dest: "./l7_firewall_rules.json"
+
+    - name: Get Appliance Ports
+      uri:
+        url: "{{ base_url }}/appliance/ports"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: appliance_ports
+
+    - name: Save Appliance Ports
+      copy:
+        content: "{{ appliance_ports.content }}"
+        dest: "./appliance_ports.json"
+
+    - name: Get Warm Spare Settings
+      uri:
+        url: "{{ base_url }}/appliance/warmSpare"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: warm_spare
+
+    - name: Save Warm Spare Settings
+      copy:
+        content: "{{ warm_spare.content }}"
+        dest: "./warm_spare.json"
+
+    - name: Get Appliance Settings
+      uri:
+        url: "{{ base_url }}/appliance/settings"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: appliance_settings
+
+    - name: Save Appliance Settings
+      copy:
+        content: "{{ appliance_settings.content }}"
+        dest: "./appliance_settings.json"

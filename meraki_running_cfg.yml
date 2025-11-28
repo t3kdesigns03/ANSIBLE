@@ -1,0 +1,83 @@
+---
+- name: Export Meraki SD-WAN running configuration
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    network_id: "N_812899732740392528"
+    base_url: "https://api.meraki.com/api/v1/networks/{{ network_id }}"
+    headers:
+      X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      Content-Type: "application/json"
+
+  tasks:
+    
+    - name: Get Route Table
+      uri:
+        url: "{{ base_url }}/appliance/routes"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: route_table
+    - name: Save Route Table
+      copy:
+        content: "{{ route_table.content }}"
+        dest: "./route_table.json"
+
+    - name: Get VLANs
+      uri:
+        url: "{{ base_url }}/vlans"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: vlans
+
+    - name: Save VLANs
+      copy:
+        content: "{{ vlans.content }}"
+        dest: "./vlans.json"
+
+    - name: Get Firewall Rules
+      uri:
+        url: "{{ base_url }}/appliance/firewall/l3FirewallRules"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: firewall_rules
+
+    - name: Save Firewall Rules
+      copy:
+        content: "{{ firewall_rules.content }}"
+        dest: "./firewall_rules.json"
+
+    - name: Get Site-to-Site VPN
+      uri:
+        url: "{{ base_url }}/siteToSiteVpn"
+        method: GET
+        headers: "{{ headers }}"
+        return_content: yes
+        status_code: 200
+      register: s2s_vpn
+
+    - name: Save Site-to-Site VPN
+      copy:
+        content: "{{ s2s_vpn.content }}"
+        dest: "./site_to_site_vpn.json"
+
+  #  - name: Get Traffic Shaping Rules
+  #    uri:
+  #      url: "{{ base_url }}/appliance/trafficShaping/rules"
+  #      method: GET
+  #      headers: "{{ headers }}"
+  #      return_content: yes
+  #      status_code: 200
+  #    register: traffic_shaping
+
+  #  - name: Save Traffic Shaping Rules
+  #    copy:
+  #      content: "{{ traffic_shaping.content }}"
+  #      dest: "./traffic_shaping.json"

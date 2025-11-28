@@ -1,0 +1,121 @@
+---
+- name: Postpone ALL Scheduled Meraki MX450 Firmware Upgrades by 30 Days
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    meraki_org_id: 977108
+    meraki_base_url: "https://api.meraki.com/api/v1"
+    serials:
+      - Q2TW-TD7B-BBM4
+      - Q2TW-VX64-KWV5
+      - Q2TW-DBVG-LJ9Q
+      - Q2TW-4TRV-JFXZ
+      - Q3LD-MNY8-TRZS
+      - Q3LD-PQDJ-9UNB
+    postpone_offset: "+30 days"
+
+  tasks:
+
+    - name: Compute postponement time (UTC)
+      set_fact:
+        postpone_time: >-
+          {{ lookup('pipe', 'date -u -d "' ~ postpone_offset ~ '" +%Y-%m-%dT%H:%M:%SZ') }}
+
+    - name: Get device info
+      cisco.meraki.devices_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ meraki_org_id }}"
+        serial: "{{ item }}"
+      loop: "{{ serials }}"
+      register: dev_info
+
+    - name: Extract network IDs
+      set_fact:
+        network_ids: "{{ dev_info.results | map(attribute='meraki_response.networkId') | list }}"
+
+    - name: Pull firmware status
+      ansible.builtin.uri:
+        url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+        method: GET
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        return_content: true
+      loop: "{{ network_ids }}"
+      register: fw_status
+
+    - name: Initialize upgrade_plan
+      set_fact:
+        upgrade_plan: []
+
+    - name: Build list of networks with scheduled upgrade
+      set_fact:
+        upgrade_plan: "{{ upgrade_plan + [item] }}"
+      loop: "{{ fw_status.results | zip(network_ids, serials) | list }}"
+      loop_control:
+        loop_var: combined
+      vars:
+        fw_item: "{{ combined[0] }}"
+        net_id: "{{ combined[1] }}"
+        serial: "{{ combined[2] }}"
+        appliance: "{{ fw_item.json.products.appliance }}"
+        has_schedule: >-
+          {{ appliance.nextUpgrade.time is defined and appliance.nextUpgrade.time != '' }}
+        item: >-
+          {{
+            {
+              'net_id': net_id,
+              'serial': serial,
+              'current_version': appliance.currentVersion.shortName,
+              'scheduled_version': appliance.nextUpgrade.toVersion.shortName,
+              'scheduled_time': appliance.nextUpgrade.time,
+              'to_version_id': appliance.nextUpgrade.toVersion.id
+            }
+          }}
+      when: has_schedule
+
+    - name: DEBUG - Show scheduled upgrades to be postponed
+      debug:
+        msg: >-
+          {{ item.serial }} ({{ item.net_id }})
+          → {{ item.current_version }} → {{ item.scheduled_version }}
+          → {{ item.scheduled_time }} → {{ postpone_time }}
+      loop: "{{ upgrade_plan }}"
+      when: upgrade_plan | length > 0
+
+    - name: Postpone scheduled upgrade to +30 days
+      ansible.builtin.uri:
+        url: "{{ meraki_base_url }}/networks/{{ item.net_id }}/firmwareUpgrades"
+        method: PUT
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        body_format: json
+        body: >-
+          {
+            "products": {
+              "appliance": {
+                "nextUpgrade": {
+                  "time": "{{ postpone_time }}",
+                  "toVersion": { "id": "{{ item.to_version_id }}" }
+                },
+                "participateInNextBetaRelease": true
+              }
+            }
+          }
+      loop: "{{ upgrade_plan }}"
+      register: postpone_result
+      when: upgrade_plan | length > 0
+
+    - name: Summary
+      debug:
+        msg: >-
+          {% if postpone_result.results is defined and postpone_result.results | length > 0 %}
+          Postponed {{ postpone_result.results | length }} scheduled upgrade(s):
+          {% for r in postpone_result.results %}
+          • {{ r.item.serial }} → {{ postpone_time }} ({{ r.item.scheduled_version }})
+          {% endfor %}
+          {% else %}
+          No scheduled upgrades found.
+          {% endif %}

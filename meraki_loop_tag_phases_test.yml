@@ -1,0 +1,57 @@
+---
+- name: Loop through Meraki organization networks and tag only first 5 P1 networks
+  hosts: localhost
+  connection: local
+
+  vars_files:
+    - ./group_vars/merakivault.yml
+    - ./proce  # assuming your original include
+
+  vars:
+    meraki_org_id: 977108
+    target_tag: "P1"
+    new_tag: "TEST"
+    max_networks: 5
+
+  gather_facts: false
+
+  tasks:
+
+    - name: Get ALL Meraki organization networks
+      cisco.meraki.networks_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ meraki_org_id }}"
+        perPage: 1000
+        total_pages: -1
+      register: all_meraki_networks
+      ignore_errors: yes
+
+    - name: Show total networks found
+      debug:
+        msg: "{{ all_meraki_networks.meraki_response | default([]) | length }} networks found in total."
+      when: all_meraki_networks is success
+
+    - name: Fail if no networks are found
+      fail:
+        msg: "No Meraki networks found for organization ID {{ meraki_org_id }}."
+      when: all_meraki_networks.meraki_response | default([]) | length == 0
+
+    - name: Filter first 5 networks with tag P1
+      set_fact:
+        filtered_networks: >-
+          {{ all_meraki_networks.meraki_response
+          | selectattr('tags', 'defined')
+          | selectattr('tags', 'search', target_tag)
+          | list
+          | slice(0, max_networks) }}
+
+    - name: Show which networks will be updated
+      debug:
+        msg: "Updating {{ filtered_networks | length }} networks: {{ filtered_networks | map(attribute='name') | list }}"
+
+    - name: Include process batch task file for the filtered networks only
+      include_tasks: process_batch_tasks.yml
+      loop: "{{ filtered_networks }}"
+      loop_control:
+        loop_var: item
+        label: "{{ item.name }}"

@@ -1,0 +1,28 @@
+---
+- name: Export Meraki device configuration via URI
+  hosts: localhost
+  gather_facts: no
+
+  vars_files:
+    - ./group_vars/merakivault.yml
+
+  vars:
+    network_id: "N_812899732740392528"
+    meraki_api_url: "https://api.meraki.com/api/v1/networks/{{ network_id }}/devices"
+
+  tasks:
+    - name: Get Meraki devices via API
+      uri:
+        url: "{{ meraki_api_url }}"
+        method: GET
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+          Content-Type: "application/json"
+        return_content: yes
+        status_code: 200
+      register: meraki_devices
+
+    - name: Save device config to JSON
+      copy:
+        content: "{{ meraki_devices.content }}"
+        dest: "./meraki_config.json"

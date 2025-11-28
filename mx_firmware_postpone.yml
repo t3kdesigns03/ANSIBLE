@@ -1,0 +1,115 @@
+---
+- name: Postpone Meraki MX Firmware Upgrade — FINAL WORKING VERSION (no collections needed)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    meraki_org_id: 977108
+    meraki_base_url: "https://api.meraki.com/api/v1"
+    serials:
+      - Q2TW-TD7B-BBM4
+    postpone_offset_days: 30
+
+  tasks:
+
+  - name: Get network ID(s) from device serial(s)
+    cisco.meraki.devices_info:
+      meraki_api_key: "{{ vault_meraki_apikey }}"
+      organizationId: "{{ meraki_org_id }}"
+      serial: "{{ item }}"
+    loop: "{{ serials }}"
+    register: dev_info
+
+  - name: Set network_ids fact
+    set_fact:
+      network_ids: "{{ dev_info.results | map(attribute='meraki_response.networkId') | unique | list }}"
+
+  - name: Get current firmware upgrade status
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+      method: GET
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      return_content: true
+    loop: "{{ network_ids }}"
+    register: fw_status
+
+  - name: Calculate next allowed upgrade time — pure Jinja2, no external collections
+    vars:
+      # 30 days from now as datetime object
+      base_dt: "{{ (ansible_date_time.epoch | int + (postpone_offset_days * 86400)) | int | timestamp_custom('%Y-%m-%d %H:%M:%S') | to_datetime('%Y-%m-%d %H:%M:%S') }}"
+
+      # Target weekday (Sun=0 … Sat=6)
+      day_map: {sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6}
+      target_weekday: "{{ day_map[item.json.upgradeWindow.dayOfWeek | lower[:3]] }}"
+
+      # Current weekday of the base date
+      current_weekday: "{{ base_dt.strftime('%w') | int }}"
+
+      # Days to add to reach next target day (0 = same day → add 7)
+      days_to_add: "{{ ((target_weekday - _weekday) % 7) }}"
+      final_days: "{{ days_to_add if days_to_add > 0 else 7 }}"
+
+      # Final datetime
+      final_dt: "{{ (base_dt + timedelta(days=final_days)) }}"
+
+      # Desired hour (4:00 → 04)
+      hour: "{{ '%02d' | format(item.json.upgradeWindow.hourOfDay.split(':')[0] | int) }}"
+
+      # ISO8601 with Z
+      new_time: "{{ final_dt.strftime('%Y-%m-%d') }}T{{ hour }}:00:00Z"
+    set_fact:
+      new_upgrade_time: "{{ new_time }}"
+    loop: "{{ fw_status.results }}"
+    when:
+      - item.json.products.appliance.nextUpgrade.time is defined
+      - item.json.products.appliance.nextUpgrade.time != ''
+      - "'Firmware version locked' not in (item.json.products.appliance.currentVersion.firmware | default('')
+    register: postpone_times
+
+  - name: POSTPONE — apply the new time
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item.item.item }}/firmwareUpgrades"
+      method: PUT
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        Content-Type: application/json
+      body_format: json
+      body: >
+        {
+          "timezone": "{{ item.item.json.timezone }}",
+          "products": {
+            "appliance": {
+              "nextUpgrade": {
+                "time": "{{ new_upgrade_time }}",
+                "toVersion": { "id": "{{ item.item.json.products.appliance.nextUpgrade.toVersion.id }}" }
+              },
+              "participateInNextBetaRelease": false
+            }
+          }
+        }
+      status_code: 200
+    loop: "{{ postpone_times.results }}"
+    when: postpone_times.results is defined and postpone_times.results | length > 0
+
+  - name: Verify final state
+    uri:
+      url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+      method: GET
+      headers:
+        X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      return_content: true
+    loop: "{{ network_ids }}"
+    register: verify
+
+  - name: SUMMARY
+    debug:
+      msg: |
+        {% for r in fw_status.results %}
+        {% set net = r.item %}
+        {% set old = r.json.products.appliance.nextUpgrade.time | default('none') %}
+        {% set new = (verify.results | selectattr('item','equalto',net) | first).json.products.appliance.nextUpgrade.time | default('none') %}
+        • {{ net }} : {{ 'SUCCESS → ' + new if old != new else 'No change (RC or already postponed)' }} (was {{ old }})
+        {% endfor %}

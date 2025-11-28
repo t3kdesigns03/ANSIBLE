@@ -1,0 +1,87 @@
+
+- name: Postpone firmware upgrade for MX450 devices via Meraki API
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ./group_vars/merakivault.yml
+  vars:
+    meraki_org_id: 977108
+    meraki_base_url: "https://api.meraki.com/api/v1"
+    serials:
+      - Q2TW-TD7B-BBM4  # MX450 JN
+      - Q2TW-VX64-KWV5  # MX450 WM
+      - Q2TW-DBVG-LJ9Q  # MX450 JN2
+      - Q2TW-4TRV-JFXZ  # MX450 WM2
+      - Q3LD-MNY8-TRZS  # MX450 JN3
+      - Q3LD-PQDJ-9UNB  # MX450 WM3
+
+  tasks:
+    - name: Compute postponement time
+      set_fact:
+        postpone_time: "{{ lookup('pipe', 'date -u -d \"+30 days\" +%Y-%m-%dT%H:%M:%SZ') }}"
+
+    - name: Get device info for each serial
+      cisco.meraki.devices_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ meraki_org_id }}"
+        serial: "{{ item }}"
+      loop: "{{ serials }}"
+      register: device_info_results
+
+    - name: Extract network IDs from device info
+      set_fact:
+        mx_network_ids: "{{ device_info_results.results | map(attribute='meraki_response.networkId') | list }}"
+
+    - name: Get firmware info
+      ansible.builtin.uri:
+        url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+        method: GET
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        return_content: yes
+      register: fw_info
+      loop: "{{ mx_network_ids }}"
+      failed_when: false
+
+    - name: Debug firmware info structure
+      debug:
+        var: fw_info.results[loop_index].json.products.appliance
+      loop: "{{ mx_network_ids }}"
+      loop_control:
+        index_var: loop_index
+
+    - name: Postpone upgrade if any available version exists
+      ansible.builtin.uri:
+        url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+        method: PUT
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+        body_format: json
+        body:
+          products:
+            appliance:
+              nextUpgrade:
+                time: "{{ postpone_time }}"
+                toVersion:
+                  id: "{{ fw_info.results[loop_index].json.products.appliance.availableVersions[0].id }}"
+              participateInNextBetaRelease: false
+      loop: "{{ mx_network_ids }}"
+      loop_control:
+        index_var: loop_index
+      when: >
+        fw_info.results[loop_index].status == 200 and
+        fw_info.results[loop_index].json.products.appliance.availableVersions is defined and
+        fw_info.results[loop_index].json.products.appliance.availableVersions | length > 0
+      check_mode: false
+
+    - name: Show dynamic firmware summary
+      debug:
+        msg: |
+          {% for idx in range(mx_network_ids | length) %}
+          {{ serials[idx] }}:
+            Current Firmware: {{ fw_info.results[idx].json.products.appliance.currentVersion.shortName | default('Unknown') }}
+            Upgrade Available: {{ 'Yes' if fw_info.results[idx].json.products.appliance.availableVersions | length > 1 else 'No' }}
+            Scheduled Upgrade: {{ fw_info.results[idx].json.products.appliance.nextUpgrade.time | default('None') }}
+            Available Versions: {{ fw_info.results[idx].json.products.appliance.availableVersions | map(attribute='shortName') | join(', ') }}
+          {% endfor %}

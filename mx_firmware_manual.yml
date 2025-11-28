@@ -1,0 +1,71 @@
+---
+- name: Cancel pending firmware upgrades for MX450 networks (manual mode)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - ./group_vars/merakivault.yml
+
+  tasks:
+
+    - name: Get all networks in the org
+      cisco.meraki.organizations_networks_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ organizationId }}"
+      register: all_networks
+
+    - name: Get all devices in the org
+      cisco.meraki.organizations_devices_info:
+        meraki_api_key: "{{ vault_meraki_apikey }}"
+        organizationId: "{{ organizationId }}"
+        total_pages: all
+      register: all_devices
+
+    - name: Filter network IDs with MX450 appliances
+      set_fact:
+        mx450_network_ids: "{{ all_devices.meraki.devices | selectattr('model', 'equalto', 'MX450') | map(attribute='networkId') | unique | list }}"
+
+    - name: Filter full network details for MX450 networks
+      set_fact:
+        mx450_networks: "{{ all_networks.meraki.networks | selectattr('id', 'in', mx450_network_ids) | selectattr('productTypes', 'contains', 'appliance') | list }}"
+
+    - name: Initialize flattened results list
+      set_fact:
+        flattened_results: []
+
+    - name: Process MX450 networks
+      block:
+        - name: Get firmware info
+          cisco.meraki.networks_firmware_upgrades_info:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ item.id }}"
+          register: firmware_info
+
+        - name: Cancel pending firmware upgrade
+          cisco.meraki.networks_firmware_upgrades:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ item.id }}"
+            products:
+              appliance:
+                # Omit nextUpgrade to cancel; set to empty object if needed
+                participateInNextBetaRelease: false
+          register: cancel_result
+          when: firmware_info.meraki.products.appliance.nextUpgrade is defined
+
+        - name: Collect post-cancel firmware info
+          cisco.meraki.networks_firmware_upgrades_info:
+            meraki_api_key: "{{ vault_meraki_apikey }}"
+            networkId: "{{ item.id }}"
+          register: post_cancel_info
+
+        - name: Add result to flattened list
+          set_fact:
+            flattened_results: "{{ flattened_results + [{'network_name': item.name, 'network_id': item.id, 'cancel_result': cancel_result, 'post_cancel_info': post_cancel_info}] }}"
+      loop: "{{ mx450_networks }}"
+      loop_control:
+        loop_var: item
+        label: "{{ item.name }}"
+
+    - name: Display flattened results
+      debug:
+        var: flattened_results

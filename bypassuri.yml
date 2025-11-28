@@ -1,0 +1,13 @@
+- name: Get all networks in the org
+  uri:
+    url: "https://api.meraki.com/api/v1/organizations/{{ meraki_org_id }}/networks"
+    method: GET
+    headers:
+      X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+      Content-Type: "application/json"
+    return_content: yes
+  register: all_networks
+
+- name: Build network ID to name map
+  set_fact:
+    network_id_name_map: "{{ dict(all_networks.json | map(attribute='id') | zip(all_networks.json | map(attribute='name'))) }}"

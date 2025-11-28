@@ -1,0 +1,92 @@
+---
+- name: Report Meraki Z3 firmware (CSV)
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ./group_vars/merakivault.yml
+
+  vars:
+    include_z3c: false
+    meraki_org_id: 977108
+
+  tasks:
+    - name: Get organization device statuses (limit 5)
+      cisco.meraki.meraki_device:
+        auth_key: "{{ vault_meraki_apikey }}"
+        org_id: "{{ meraki_org_id }}"
+        state: query
+        perPage: 5
+      register: org_devices
+
+    - name: Get all networks in the org
+      cisco.meraki.meraki_network:
+        auth_key: "{{ vault_meraki_apikey }}"
+        org_id: "{{ meraki_org_id }}"
+        state: query
+      register: all_networks
+
+    - name: Build network ID to name map
+      set_fact:
+        network_id_name_map: "{{ dict(all_networks.data | map(attribute='id') | zip(all_networks.data | map(attribute='name'))) }}"
+
+    - name: Filter Z3 devices (optionally include Z3C)
+      set_fact:
+        z3_devices: "{{ (org_devices.data | selectattr('model', 'equalto', 'Z3') | list) +
+                        (include_z3c | ternary(
+                          (org_devices.data | selectattr('model', 'equalto', 'Z3C') | list),
+                          []
+                        )) }}"
+
+    - name: Stop early if no Z3 devices found
+      block:
+        - debug:
+            msg: "No Z3 devices found in org {{ meraki_org_id }}. Nothing to report."
+        - meta: end_play
+      when: z3_devices | length == 0
+
+    - name: Extract unique network IDs from Z3 devices
+      set_fact:
+        z3_network_ids: "{{ z3_devices | map(attribute='networkId') | select('defined') | unique | list }}"
+
+    - name: Get firmware upgrade info per Z3 network
+      cisco.meraki.meraki_firmware:
+        auth_key: "{{ vault_meraki_apikey }}"
+        net_id: "{{ item }}"
+        state: query
+      loop: "{{ z3_network_ids }}"
+      register: fw_info_per_network
+
+    - name: Build per-network firmware map
+      set_fact:
+        fw_map: "{{ fw_map | default({}) | combine({ item.item: {
+                    'current': (item.data.products.appliance.currentVersion.shortName | default('')),
+                    'available_stable': ((item.data.products.appliance.availableVersions | default([]) | selectattr('releaseType', 'equalto', 'stable') | map(attribute='shortName') | list | first) | default(''))
+                  } }) }}"
+      loop: "{{ fw_info_per_network.results }}"
+
+    - name: Build enriched device list (merge firmware and network name)
+      set_fact:
+        device_list: "{{ device_list | default([]) + [item | combine({
+                        'networkName': network_id_name_map.get(item.networkId, ''),
+                        'current': fw_map.get(item.networkId, {}).get('current', ''),
+                        'available_stable': fw_map.get(item.networkId, {}).get('available_stable', '')
+                      })] }}"
+      loop: "{{ z3_devices }}"
+
+    - name: Sort device list (by network name, then serial)
+      set_fact:
+        device_list: "{{ device_list | sort(attribute='networkName') | sort(attribute='serial') }}"
+
+    - name: Build CSV content
+      set_fact:
+        csv_content: |
+          Serial,Model,NetworkName,NetworkId,CurrentFirmware,AvailableStable
+          {% for d in device_list -%}
+          {{ d.serial }},{{ d.model }},{{ d.networkName }},{{ d.networkId }},{{ d.current }},{{ d.available_stable }}
+          {% endfor %}
+
+    - name: Write CSV to file
+      copy:
+        dest: "./z3_firmware_report.csv"
+        content: "{{ csv_content }}"

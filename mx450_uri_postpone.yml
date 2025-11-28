@@ -1,0 +1,96 @@
+---
+- name: Postpone firmware upgrade for MX networks via API
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ./group_vars/merakivault.yml
+
+  vars:
+    meraki_org_id: 977108
+    postpone_days: 30
+    meraki_base_url: "https://api.meraki.com/api/v1"
+
+  tasks:
+    - name: Compute postponement time (30 days from now in UTC)
+      set_fact:
+        postpone_time: "{{ lookup('pipe', 'date -u -d \"+30 days\" +%Y-%m-%dT%H:%M:%SZ') }}"
+
+    - name: Initialize device list
+      set_fact:
+        all_devices: []
+        starting_after: ""
+
+    - name: Fetch all devices with pagination
+      uri:
+        url: "{{ meraki_base_url }}/organizations/{{ meraki_org_id }}/devices?perPage=1000{{ '&startingAfter=' + starting_after if starting_after else '' }}"
+        method: GET
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+          Content-Type: "application/json"
+        return_content: yes
+      register: page
+      until: page.json | length == 0
+      retries: 50
+      delay: 1
+
+    - name: Append devices and update starting_after
+      set_fact:
+        all_devices: "{{ all_devices + page.json }}"
+        starting_after: "{{ page.json[-1].serial if page.json | length > 0 else '' }}"
+      when: page.json | length > 0
+
+    - name: Debug total devices fetched
+      debug:
+        msg: "Total devices fetched: {{ all_devices | length }}"
+
+    - name: Extract MX network IDs (all MX models)
+      set_fact:
+        mx_network_ids: "{{ (all_devices | selectattr('model', 'search', '^MX') | map(attribute='networkId') | list) | unique }}"
+
+    - name: Debug MX network IDs
+      debug:
+        var: mx_network_ids
+
+    - name: Get firmware info for each MX network
+      uri:
+        url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+        method: GET
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+          Content-Type: "application/json"
+        return_content: yes
+      register: fw_info
+      loop: "{{ mx_network_ids }}"
+      loop_control:
+        loop_var: item
+      check_mode: no
+
+    - name: Postpone firmware upgrade if nextUpgrade exists
+      uri:
+        url: "{{ meraki_base_url }}/networks/{{ item }}/firmwareUpgrades"
+        method: PUT
+        headers:
+          X-Cisco-Meraki-API-Key: "{{ vault_meraki_apikey }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          products:
+            appliance:
+              nextUpgrade:
+                time: "{{ postpone_time }}"
+                toVersion:
+                  id: "{{ fw_info.results[loop.index0].json.products.appliance.nextUpgrade.toVersion.id }}"
+              participateInNextBetaRelease: false
+      when: fw_info.results[loop.index0].json.products.appliance.nextUpgrade is defined
+      loop: "{{ mx_network_ids }}"
+      loop_control:
+        loop_var: item
+      check_mode: yes
+
+    - name: Show summary
+      debug:
+        msg:
+          - "Network: {{ item }}"
+          - "Upgrade postponed to: {{ postpone_time }}"
+      loop: "{{ mx_network_ids }}"
