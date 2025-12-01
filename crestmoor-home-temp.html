@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ">
+  <title>Crestmoor Golf Club | Nine-Hole Public Course in Creston, IA</title>
+  <meta name="description" content="Crestmoor Golf Club – a beautiful nine-hole public golf course in Creston, Iowa. Book tee times online, enjoy our driving range, junior programs, and friendly atmosphere. Open to all skill levels.">
+  <!-- Open Graph -->
+  <meta property="og:title" content="Crestmoor Golf Club – Creston, Iowa">
+  <meta property="og:description" content="Nine holes of challenge and fun for everyone. Book your tee time today!">
+ 1801 W. Townline, Creston, IA">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1575909812264-6902b55846ad?w=1200&h=630&fit=crop">
+  <meta property="og:url" content="https://www.crestmoorgolf.com">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon (placeholder) -->
+  <link rel="icon" href="data:,">
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fontawesome/6.5.0/css/all.min.css">
+
+  <!-- Google Fonts: Inter + Playfair Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+  <style>
+    :root {
+      --green-primary: #228B22;
+      --green-dark: #1a661a;
+      --green-light: #A5D6A7;
+      --bg-light: #F5F5F5;
+      --text-dark: #333;
+      --gray-700: #444;
+      --gray-100: #f8f9fa;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 16px/1.6;
+      color: var(--text-dark);
+      background: var(--bg-light);
+      scroll-behavior: smooth;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    a { color: var(--green-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Header */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .navbar {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      color: var(--green-primary);
+      font-weight: 700;
+    }
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+    }
+    .nav-links a {
+      color: var(--gray-700);
+      font-weight: 500;
+      transition: color .3s;
+    }
+    .nav-links a:hover { color: var(--green-primary); }
+    .mobile-menu {
+      display: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    /* Hero
+    .hero {
+      height: 100vh;
+      min-height: 600px;
+      background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)),
+                  url('https://images.unsplash.com/photo-1575909812263188-8c7b8f98be49?w=1920') center/cover no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: white;
+      position: relative;
+    }
+    .hero-content {
+      max-width: 900px;
+      padding: 2rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.4rem;
+      margin-bottom: 2rem;
+    }
+    .btn-primary {
+      background: var(--green-primary);
+      color: white;
+      padding: 1rem 2.5rem;
+      border: none;
+      border-radius: 50px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: background .3s, transform .2s;
+    }
+    .btn-primary:hover {
+      background: var(--green-dark);
+      transform: translateY(-3px);
+    }
+
+    /* Sections */
+    section {
+      padding: 5rem 1rem;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 2.8rem;
+      margin-bottom: 3rem;
+      color: var(--green-primary);
+    }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      transition: transform .3s;
+    }
+    .card:hover { transform: translateY(-10px); }
+    .card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    /* Tee Times */
+    #tee-times {
+      background: linear-gradient(135deg, #E0F7FA, var(--green-light));
+    }
+    .booking-form {
+      background: white;
+      padding: 2.5rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      margin-bottom: .5rem;
+      font-weight: 600;
+    }
+    input, select, .flatpickr-input {
+      width: 100%;
+      padding: .8rem 1rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    .time-slots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .slot {
+      padding: .8rem;
+      text-align: center;
+      border-radius: 8px;
+      background: #e0e0e0;
+      cursor: pointer;
+      transition: all .3s;
+    }
+    .slot.available {
+      background: #d4edda;
+      border: 2px solid var(--green-primary);
+    }
+    .slot.booked {
+      background: #f8d7da;
+      color: #721c24;
+      cursor: not-allowed;
+    }
+
+    /* Amenities Carousel */
+    .amenities {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 1rem 0;
+    }
+    .amenity-cards {
+      display: flex;
+      gap: 2rem;
+      min-width: max-content;
+    }
+    .amenity-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      min-width: 280px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    .amenity-card i {
+      font-size: 3rem;
+      color: var(--green-primary);
+      margin-bottom: 1rem;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--green-dark);
+      color: white;
+      padding: 4rem 1rem 2rem;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .footer-col h4 {
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+    }
+    .social-links a {
+      color: white;
+      font-size: 1.8rem;
+      margin-right: 1rem;
+    }
+
+    /* Floating Book Button */
+    .floating-book {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--green-primary);
+      color: white;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      z-index: 999;
+      transition: all .3s;
+    }
+    .floating-book:hover {
+      transform: scale(1.1);
+      background: var(--green-dark);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .mobile-menu { display: block; }
+      .mobile-nav {
+        position: fixed;
+        top: 70px;
+        left: -100%;
+        width: 100%;
+        height: calc(100vh - 70px);
+        background: white;
+        transition: left .4s;
+        padding: 2rem;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+      }
+      .mobile-nav.active { left: 0; }
+      .mobile-nav a {
+        display: block;
+        padding: 1rem 0;
+        font-size: 1.3rem;
+        color: var(--gray-700);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <nav class="navbar">
+      <div class="logo">Crestmoor Golf Club</div>
+      <div class="nav-links">
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#tee-times">Tee Times</a>
+        <a href="#amenities">Amenities</a>
+        <a href="#programs">Programs</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div class="mobile-menu" id="mobileMenu">
+        <i class="fas fa-bars"></i>
+      </div>
+    </nav>
+    <div class="mobile-nav" id="mobileNav">
+      <a href="#home">Home</a>
+      <a href="#about">About the Course</a>
+      <a href="#tee-times">Tee Times</a>
+      <a href="#amenities">Amenities</a>
+      <a href="#programs">Programs & Events</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="home" class="hero">
+    <div class="hero-content">
+      <h1>Welcome to Crestmoor Golf Club</h1>
+      <p>Nine Holes of Challenge for All Levels in Beautiful Creston, Iowa</p>
+      <a href="#tee-times" class="btn-primary">Book Tee Time Now</a>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about">
+    <div class="container">
+      <h2 class="section-title">About the Course</h2>
+      <div class="card-grid">
+        <div class="card">
+          <img src="https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=800" alt="Fairway at Crestmoor Golf Club" loading="lazy">
+          <div class="card-body">
+            <h3>Nine Challenging Holes</h3>
+            <p>Our well-maintained nine-hole layout offers three tee sets to accommodate every skill level – from beginners to seasoned players.</p>
+          </div>
+        </div>
+        <div class="card">
+          <img src="https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=800" alt="Putting green" loading="lazy">
+          <div class="card-body">
+            <h3>Handicap & Ratings</h3>
+            <p>Member of the Iowa Golf Association with official GHIN handicap system. Rated course with established slope and rating.</p>
+          </div>
+        </div>
+        <div class="card">
+          <img src="https://images.unsplash.com/photo-1593113598332-cd288d649433?w=800" alt="Crestmoor Clubhouse" loading="lazy">
+          <div class="card-body">
+            <h3>Proud Home of Champions</h3>
+            <p>2013 Creston/OM Boys 3A State Champions • 2018 Girls 2nd Place State Finals</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 4rem; text-align:center;">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3011.867949271847!2d-94.39389968456!3d41.074047979293!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x87ac1f81f81d!2sCrestmoor%20Golf%20Club!5e0!3m2!1sen!2sus!4v1680000000000" width="100%" height="450" style="border:0; border-radius:12px;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tee Times -->
+  <section id="tee-times">
+    <div class="container">
+      <h2 class="section-title">Book Your Tee Time</h2>
+      <div class="booking-form">
+        <form id="bookingForm">
+          <div class="form-group">
+            <label for="date">Select Date</label>
+            <input type="text" id="date" class="flatpickr-input" placeholder="Click to choose date" required>
+          </div>
+
+          <div class="form-group">
+            <label>Preferred Time Range</label>
+            <div class="time-slots" id="timeSlots">
+              <!-- Slots populated by JS -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="players">Number of Players</label>
+            <select id="players" required>
+              <option value="">Choose...</option>
+              <option value="1">1 Player</option>
+              <option value="2">2 Players</option>
+              <option value="3">3 Players</option>
+              <option value="4">4 Players</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" required>
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" required>
+          </div>
+
+          <p style="text-align:center; font-weight:600; color:var(--green-primary); margin:2rem 0;">
+            Ladies Day Wednesdays at Noon • Men's Day Thursdays at Noon – Special Rates!
+          </p>
+
+          <button type="submit" class="btn-primary" style="width:100%; padding:1.2rem;">Book Tee Time</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Amenities -->
+  <section id="amenities">
+    <div class="container">
+      <h2 class="section-title">Amenities & Facilities</h2>
+      <div class="amenities">
+        <div class="amenity-cards">
+          <div class="amenity-card">
+            <i class="fas fa-golf-ball-tee"></i>
+            <h3>Driving Range</h3>
+            <p>Open to the public with grass tees and covered stalls. Perfect your swing before your round.</p>
+          </div>
+          <div class="amenity-card">
+            <i class="fas fa-store"></i>
+            <h3>Pro Shop</h3>
+            <p>Basic golf supplies, gloves, balls, apparel, and friendly advice from our staff.</p>
+          </div>
+          <div class="amenity-card">
+            <i class="fas fa-utensils"></i>
+            <h3>Snack Bar</h3>
+            <p>Grab a cold drink, hot dog, or sandwich between nines. Outdoor seating available.</p>
+          </div>
+          <div class="amenity-card">
+            <i class="fas fa-car"></i>
+            <h3>Cart Rentals</h3>
+            <p>Gas carts available for 9 or 18 holes. Pull carts also offered.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Programs & Events -->
+  <section id="programs">
+    <div class="container">
+      <h2 class="section-title">Programs & Events</h2>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-body">
+            <h3>Junior Golf Program (Ages 7–16)</h3>
+            <p>Weekly lessons, etiquette training, and participation in traveling tournaments throughout southwest Iowa. Building tomorrow's golfers today!</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h3>Leagues & Tournaments</h3>
+            <p>Men's, Ladies', Couples', and Senior leagues. Annual club championship and fun scrambles throughout the season.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h3>Stay Updated</h3>
+            <p>Join our newsletter for event announcements, specials, and course conditions.</p>
+            <button class="btn-primary" onclick="document.getElementById('newsletterModal').style.display='flex'">Subscribe Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section id="contact">
+    <div class="container">
+      <h2 class="section-title">Get in Touch</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:3rem;">
+        <div>
+          <img src="https://images.unsplash.com/photo-1558618915-0ab2cff6a8c9?w=800" alt="Crestmoor Clubhouse" loading="lazy" style="width:100%;border-radius:12px;">
+        </div>
+        <div>
+          <form id="contactForm">
+            <div class="form-group">
+              <label for="cname">Name</label>
+              <input type="text" id="cname" required>
+            </div>
+            <div class="form-group">
+              <label for="cemail">Email</label>
+              <input type="email" id="cemail" required>
+            </div>
+            <div class="form-group">
+              <label for="message">Message</label>
+              <textarea id="message" rows="6" required></textarea>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%;">Send Message</button>
+          </form>
+
+          <div style="margin-top:3rem;">
+            <p><strong>Address:</strong> 1801 W. Townline, Creston, IA 50801</p>
+            <p><strong>Phone:</strong> <a href="tel:641-782-2771">641-782-2771</a></p>
+            <p><strong>Email:</strong> <a href="mailto:crestmoorgolf@crestmoorgolf.com">crestmoorgolf@crestmoorgolf.com</a></p>
+            <p><strong>Hours:</strong> Dawn to Dusk (weather permitting)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>Crestmoor Golf Club</h4>
+        <p>1801 W. Townline<br>Creston, IA 50801</p>
+        <p>Phone: <a href="tel:641-782-2771" style="color:white;">641-782-2771</a></p>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <p><a href="#home">Home</a></p>
+        <p><a href="#about">About</a></p>
+        <p><a href="#tee-times">Tee Times</a></p>
+        <p><a href="#contact">Contact</a></p>
+      </div>
+      <div class="footer-col">
+        <h4>Follow Us</h4>
+        <div class="social-links">
+          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <p>&copy; <span id="year"></span> Crestmoor Golf Club. All rights reserved.</p>
+        <p><a href="#" style="color:#A5D6A7;">Privacy Policy</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating Book Button -->
+  <a href="#tee-times" class="floating-book" aria-label="Book Tee Time">
+    <i class="fas fa-golf-ball-tee"></i>
+  </a>
+
+  <!-- Newsletter Modal (hidden) -->
+  <div id="newsletterModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:2000;">
+    <div style="background:white;padding:2rem;border-radius:12px;max-width:500px;width:90%;">
+      <h3 style="margin-bottom:1rem;">Join Our Newsletter</h3>
+      <form id="newsletterForm">
+        <input type="email" placeholder="Your email" style="width:100%;padding:1rem;margin-bottom:1rem;border-radius:8px;border:1px solid #ccc;" required>
+        <button type="submit" class="btn-primary" style="width:100%;">Subscribe</button>
+      </form>
+      <button onclick="document.getElementById('newsletterModal').style.display='none'" style="margin-top:1rem;background:none;border:none;font-size:1.5rem;cursor:pointer;">×</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    // Mobile menu toggle
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileNav = document.getElementById('mobileNav');
+    mobileMenu.addEventListener('click', () => {
+      mobileNav.classList.toggle('active');
+    });
+
+    // Flatpickr
+    flatpickr("#date", {
+      minDate: "today",
+      maxDate: new Date().fp_incr(60), // 60 days from now
+      dateFormat: "Y-m-d",
+      onChange: function(selectedDates, dateStr) {
+        generateTimeSlots(dateStr);
+      }
+    });
+
+    // Generate mock time slots
+    function generateTimeSlots(date) {
+      const slotsContainer = document.getElementById('timeSlots');
+      slotsContainer.innerHTML = '';
+      const times = ["7:00 AM","7:30 AM","8:00 AM","8:30 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM"];
+      const booked = [2,5,8,11]; // random booked slots
+
+      times.forEach((time, i) => {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.textContent = time;
+        slot.dataset.available = !booked.includes(i);
+        if (!booked.includes(i)) {
+          slot.classList.add('available');
+          slot.onclick = () => selectSlot(slot);
+        } else {
+          slot.classList.add('booked');
+        }
+        slotsContainer.appendChild(slot);
+      });
+    }
+
+    let selectedSlot = null;
+    function selectSlot(el) {
+      if (selectedSlot) selectedSlot.classList.remove('selected');
+      el.classList.add('selected');
+      selectedSlot = el;
+    }
+
+    // Form submissions (just console log + alert)
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (!selectedSlot) {
+        alert('Please select a tee time slot.');
+        return;
+      }
+      console.log('Tee time booked:', {
+        date: document.getElementById('date').value,
+        time: selectedSlot.textContent,
+        players: document.getElementById('players').value,
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value
+      });
+      alert('Thank you! Your tee time has been booked. We will contact you shortly.');
+      this.reset();
+      generateTimeSlots(new Date().toISOString().split('T')[0]);
+    });
+
+    document.getElementById('contactForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('Message sent! We’ll get back to you soon.');
+      this.reset();
+    });
+
+    document.getElementById('newsletterForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('Thank you for subscribing!');
+      document.getElementById('newsletterModal').style.display = 'none';
+      this.reset();
+    });
+
+    // Set current year
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
